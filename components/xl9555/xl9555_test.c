@@ -48,7 +48,7 @@
 
 
 
-void app_main(void)
+void app_eg(void)
 {
 
     i2c_bus_init();

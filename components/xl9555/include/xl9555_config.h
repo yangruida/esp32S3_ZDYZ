@@ -29,8 +29,8 @@ extern "C" {
 /*!< I2C address of slave dev */
 
 
-
-static const char *TAG = "xl9555_16bit test";
+static const char *TAG = "spi_lcd_panel_st7789_example";
+// static const char *TAG = "xl9555_16bit test";
 static esp_io_expander_handle_t io_expander = NULL;
 static i2c_master_bus_handle_t i2c_handle = NULL;
 //为啥只能使用static？extern会报错undefined reference，感觉是编译链接的问题
