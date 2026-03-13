@@ -19,6 +19,7 @@
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_st7789.h"  // ST7789 的具体驱动头文件
 
+#include "esp_lvgl_port.h"
 //static const char *TAG = "LCD";
 
 // ===== 根据你的硬件修改这里 =====
@@ -142,7 +143,11 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true)); // 很多ST7789需要颜色反转
-    
+
+
+
+
+
     // 5. 配置显示方向（可选）
     esp_lcd_panel_swap_xy(panel_handle, false);  // 不交换XY
     esp_lcd_panel_mirror(panel_handle, false, false); // 不镜像
@@ -156,36 +161,58 @@ void app_main(void) {
     // gpio_set_level(PIN_NUM_BCKL, 1);
     ESP_LOGI(TAG, "open the backlight via XL9555 P10...");
     esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_11, 1);
-    
+
     //释放io扩展器资源和i2c总线资源
     i2c_dev_xl9555_16bit_deinit();
     i2c_bus_deinit();
-
-// 8. 分配显存并填充颜色
-    size_t buffer_size = LCD_H_RES * 40 * sizeof(uint16_t); // 40行缓冲区
-    uint16_t *buffer = heap_caps_malloc(buffer_size, MALLOC_CAP_8BIT|MALLOC_CAP_SPIRAM );//关闭spiram是八位的 octal
-    if (!buffer) {
-        ESP_LOGE(TAG, "Memory allocation failed!");
-        return;
-    }
     
-    // 填充红色 (RGB565: 0xF800)
-    for (int i = 0; i < LCD_H_RES * 40; i++) {
-        buffer[i] = 0xF800;
-    }
+    // === 从这里开始接入LVGL ===
     
-    // 逐行发送数据
-    for (int y = 0; y < LCD_V_RES; y += 40) {
-        int height = (y + 40 <= LCD_V_RES) ? 40 : (LCD_V_RES - y);
-        esp_lcd_panel_draw_bitmap(panel_handle, 0, y, LCD_H_RES, y + height, buffer);
-    }
+    // 1. 初始化LVGL核心库
+    lvgl_port_cfg_t lvgl_cfg = {
+        .task_priority = tskIDLE_PRIORITY + 2,
+        .task_stack = 4096,
+        .task_affinity = -1,  // 不绑定核心
+        .timer_period_ms = 5,
+    };
+    lvgl_port_init(&lvgl_cfg);
     
-    ESP_LOGI(TAG, "Screen should now be RED!");
+    // 2. 添加显示设备
+    const lvgl_port_display_cfg_t disp_cfg = {
+        .io_handle = io_handle,
+        .panel_handle = panel_handle,
+        .buffer_size = LCD_H_RES * 40,  // 和你之前用的缓冲区大小一致
+        .double_buffer = true,           // 双缓冲更流畅
+        .hres = LCD_H_RES,
+        .vres = LCD_V_RES,
+        .monochrome = false,
+        .rotation = {
+            .swap_xy = false,
+            .mirror_x = false,
+            .mirror_y = false,
+        }
+    };
     
-    // 释放内存
-    free(buffer);
+    lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
     
+    // 3. 创建你的第一个LVGL界面
+    lv_obj_t *scr = lv_scr_act();  // 获取当前屏幕
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x0000FF), LV_STATE_DEFAULT);  // 蓝色背景
+    
+    // 添加一个按钮
+    lv_obj_t *btn = lv_btn_create(scr);
+    lv_obj_set_size(btn, 100, 50);
+    lv_obj_center(btn);
+    
+    lv_obj_t *label = lv_label_create(btn);
+    lv_label_set_text(label, "Hello LVGL!");
+    lv_obj_center(label);
+    
+    ESP_LOGI(TAG, "LVGL is running!");
+    
+    // 4. LVGL有自己的任务循环，你不需要手动刷新
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+
 }
