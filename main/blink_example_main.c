@@ -156,6 +156,8 @@ void app_main(void) {
     // gpio_set_level(PIN_NUM_BCKL, 1);
     ESP_LOGI(TAG, "open the backlight via XL9555 P10...");
     esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_11, 1);
+    
+    //释放io扩展器资源和i2c总线资源
     i2c_dev_xl9555_16bit_deinit();
     i2c_bus_deinit();
 
