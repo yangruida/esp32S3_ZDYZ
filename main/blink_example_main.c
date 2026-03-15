@@ -70,6 +70,8 @@
     esp_err_t ret = esp_io_expander_del(io_expander);
     TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, ret, "TCA9554 delete returned error");
 }
+
+
 static lv_disp_t *disp_handle = NULL;
 static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, 
                                     esp_lcd_panel_io_event_data_t *edata, 
