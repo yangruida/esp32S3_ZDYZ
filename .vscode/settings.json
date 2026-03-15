@@ -14,5 +14,6 @@
     "--query-driver=**",
     "--compile-commands-dir=/home/happiness/lcd_drive/build"
   ],
-  "idf.flashType": "UART"
+  "idf.flashType": "JTAG",
+  "C_Cpp.errorSquiggles": "enabled"
 }

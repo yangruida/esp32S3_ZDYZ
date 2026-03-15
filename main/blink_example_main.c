@@ -18,8 +18,12 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_st7789.h"  // ST7789 的具体驱动头文件
+#include "xl9555.h"
 
-#include "esp_lvgl_port.h"
+#include "ui.h"
+#include "esp_lvgl_port.h"//连接硬件时
+#include "lvgl.h"//创建UI时config中使用了swap来校准自序即色彩
+
 //static const char *TAG = "LCD";
 
 // ===== 根据你的硬件修改这里 =====
@@ -66,38 +70,23 @@
     esp_err_t ret = esp_io_expander_del(io_expander);
     TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, ret, "TCA9554 delete returned error");
 }
+static lv_disp_t *disp_handle = NULL;
+// IO 配置中的颜色传输完成回调（v1.x 的方式）
+// 颜色传输完成回调（官方推荐方式）
+// 颜色传输完成回调（官方推荐方式）
+static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, 
+                                    esp_lcd_panel_io_event_data_t *edata, 
+                                    void *user_ctx) {
+    lvgl_port_flush_ready(disp_handle);  // 直接使用全局 disp_handle
+    return false;
+}
 
-
-
-// void app_main(void)
-// {
-//     i2c_bus_init();
-//     i2c_dev_xl9555_16bit_init();
-
-//     esp_err_t ret;
-//     /* Test output level function */
-//      esp_io_expander_set_dir(io_expander, TEST_OUTPUT_PINS, IO_EXPANDER_OUTPUT);
-//     //Print state
-//      esp_io_expander_print_state(io_expander);
-//         // Set level to 0
-//         ESP_LOGI(TAG, "Set level to 1");
-//         esp_io_expander_set_level(io_expander, TEST_OUTPUT_PINS, 1);
-//         vTaskDelay(pdMS_TO_TICKS(TEST_LOOP_DELAY_MS / 2));
-
-//     i2c_dev_xl9555_16bit_deinit();
-//     i2c_bus_deinit();
- 
-//     vTaskDelay(10); // Give FreeRTOS some time to free its resources
-// }
 void app_main(void) {
     ESP_LOGI(TAG, "Starting ST7789 example...");
     // 初始化 I2C 总线和 IO 扩展器
     i2c_bus_init();
     i2c_dev_xl9555_16bit_init();
-     esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_11|IO_EXPANDER_PIN_NUM_10, IO_EXPANDER_OUTPUT);
-    //Print state
-     esp_io_expander_print_state(io_expander);
-
+    esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_11|IO_EXPANDER_PIN_NUM_10, IO_EXPANDER_OUTPUT);
 
     // 1. 初始化 SPI 总线
     spi_bus_config_t buscfg = {
@@ -106,7 +95,7 @@ void app_main(void) {
         .miso_io_num = -1,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = LCD_H_RES * 80 * sizeof(uint16_t), // 一次传80行
+        .max_transfer_sz = LCD_H_RES * 80 * sizeof(uint16_t),
     };
     ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
     
@@ -120,6 +109,9 @@ void app_main(void) {
         .lcd_param_bits = 8,
         .spi_mode = 0,                // ST7789 通常用 Mode 0 或 3
         .trans_queue_depth = 10,
+            // 👇 关键：添加回调函数
+        .on_color_trans_done = notify_lvgl_flush_ready,
+        .user_ctx = &disp_handle,  // 传递 disp_handle 的指针
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_config, &io_handle));
     
@@ -127,7 +119,7 @@ void app_main(void) {
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = -1, // 复位由扩展IO控制
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_BGR, // 颜色顺序
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB, // 颜色顺序
         .bits_per_pixel = LCD_BITS_PER_PIXEL,
     };
     ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
@@ -142,47 +134,31 @@ void app_main(void) {
     // 4. 初始化面板
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true)); // 很多ST7789需要颜色反转
-
-
-
-
-
-    // 5. 配置显示方向（可选）
-    esp_lcd_panel_swap_xy(panel_handle, false);  // 不交换XY
-    esp_lcd_panel_mirror(panel_handle, false, false); // 不镜像
     
     // 6. 打开显示和背光
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
     
     // 7. 点亮背光（简单粗暴：直接拉高）（现在用的是io扩展器控制的背光）
-    
-    // gpio_set_direction(PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
-    // gpio_set_level(PIN_NUM_BCKL, 1);
     ESP_LOGI(TAG, "open the backlight via XL9555 P10...");
     esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_11, 1);
 
-    //释放io扩展器资源和i2c总线资源
-    i2c_dev_xl9555_16bit_deinit();
-    i2c_bus_deinit();
-    
-    // === 从这里开始接入LVGL ===
-    
-    // 1. 初始化LVGL核心库
-    lvgl_port_cfg_t lvgl_cfg = {
+// === 2. LVGL 初始化（v1.x API） ===
+    const lvgl_port_cfg_t lvgl_cfg = {
         .task_priority = tskIDLE_PRIORITY + 2,
-        .task_stack = 4096,
-        .task_affinity = -1,  // 不绑定核心
+        .task_stack = 8192,
+        .task_affinity = -1,
         .timer_period_ms = 5,
     };
     lvgl_port_init(&lvgl_cfg);
     
-    // 2. 添加显示设备
+    // 添加显示设备
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = panel_handle,
-        .buffer_size = LCD_H_RES * 40,  // 和你之前用的缓冲区大小一致
-        .double_buffer = true,           // 双缓冲更流畅
+        .buffer_size = LCD_H_RES * 40,
+        .double_buffer = true,
         .hres = LCD_H_RES,
         .vres = LCD_V_RES,
         .monochrome = false,
@@ -190,29 +166,29 @@ void app_main(void) {
             .swap_xy = false,
             .mirror_x = false,
             .mirror_y = false,
+        },
+        .flags = {
+            .buff_dma = true,  // 使用 DMA
         }
     };
     
-    lv_disp_t *disp = lvgl_port_add_disp(&disp_cfg);
+    disp_handle = lvgl_port_add_disp(&disp_cfg);
     
-    // 3. 创建你的第一个LVGL界面
-    lv_obj_t *scr = lv_scr_act();  // 获取当前屏幕
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x0000FF), LV_STATE_DEFAULT);  // 蓝色背景
+       // === 3. 处理字节序（你的屏幕需要） ===
+    // 方法：在 SquareLine 导出的 UI 代码中转换颜色值
+    // 可以在 ui.h 顶部添加：
+    // #define LV_COLOR_SWAP(c) __builtin_bswap16(c)
+    // 然后所有颜色值用 LV_COLOR_SWAP() 包裹
     
-    // 添加一个按钮
-    lv_obj_t *btn = lv_btn_create(scr);
-    lv_obj_set_size(btn, 100, 50);
-    lv_obj_center(btn);
+    // === 4. 加载UI ===
+    ui_init();
     
-    lv_obj_t *label = lv_label_create(btn);
-    lv_label_set_text(label, "Hello LVGL!");
-    lv_obj_center(label);
+    ESP_LOGI(TAG, "UI loaded successfully!");
     
-    ESP_LOGI(TAG, "LVGL is running!");
+    // 释放内存
+    //free(buffer);
     
-    // 4. LVGL有自己的任务循环，你不需要手动刷新
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
-
 }

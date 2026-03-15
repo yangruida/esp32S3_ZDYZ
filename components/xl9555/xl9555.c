@@ -24,16 +24,16 @@ typedef struct {
 } esp_io_expander_xl9555_16bit_t;
 
 // 静态函数声明
- esp_err_t read_input_reg(esp_io_expander_handle_t handle, uint32_t *value);
- esp_err_t write_output_reg(esp_io_expander_handle_t handle, uint32_t value);
- esp_err_t read_output_reg(esp_io_expander_handle_t handle, uint32_t *value);
- esp_err_t write_direction_reg(esp_io_expander_handle_t handle, uint32_t value);
- esp_err_t read_direction_reg(esp_io_expander_handle_t handle, uint32_t *value);
- esp_err_t reset(esp_io_expander_t *handle);
- esp_err_t del(esp_io_expander_t *handle);
+static esp_err_t read_input_reg(esp_io_expander_handle_t handle, uint32_t *value);
+static esp_err_t write_output_reg(esp_io_expander_handle_t handle, uint32_t value);
+static esp_err_t read_output_reg(esp_io_expander_handle_t handle, uint32_t *value);
+static esp_err_t write_direction_reg(esp_io_expander_handle_t handle, uint32_t value);
+static esp_err_t read_direction_reg(esp_io_expander_handle_t handle, uint32_t *value);
+static esp_err_t reset(esp_io_expander_t *handle);
+static esp_err_t del(esp_io_expander_t *handle);
 
 /************************* 核心API实现 *************************/
-esp_err_t esp_io_expander_new_i2c_xl9555_16bit(i2c_master_bus_handle_t i2c_bus, uint32_t dev_addr,
+ esp_err_t esp_io_expander_new_i2c_xl9555_16bit(i2c_master_bus_handle_t i2c_bus, uint32_t dev_addr,
         esp_io_expander_handle_t *handle_ret)
 {
     ESP_RETURN_ON_FALSE(handle_ret != NULL, ESP_ERR_INVALID_ARG, TAG, "Invalid handle_ret");
@@ -72,7 +72,7 @@ err:
     return ret;
 }
 
- esp_err_t read_input_reg(esp_io_expander_handle_t handle, uint32_t *value)
+ static esp_err_t read_input_reg(esp_io_expander_handle_t handle, uint32_t *value)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
@@ -85,7 +85,7 @@ err:
     return ESP_OK;
 }
 
- esp_err_t write_output_reg(esp_io_expander_handle_t handle, uint32_t value)
+ static esp_err_t write_output_reg(esp_io_expander_handle_t handle, uint32_t value)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
@@ -98,7 +98,7 @@ err:
     return ESP_OK;
 }
 
- esp_err_t read_output_reg(esp_io_expander_handle_t handle, uint32_t *value)
+ static esp_err_t read_output_reg(esp_io_expander_handle_t handle, uint32_t *value)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
@@ -107,7 +107,7 @@ err:
     return ESP_OK;
 }
 
- esp_err_t write_direction_reg(esp_io_expander_handle_t handle, uint32_t value)
+ static esp_err_t write_direction_reg(esp_io_expander_handle_t handle, uint32_t value)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
@@ -120,7 +120,7 @@ err:
     return ESP_OK;
 }
 
- esp_err_t read_direction_reg(esp_io_expander_handle_t handle, uint32_t *value)
+ static esp_err_t read_direction_reg(esp_io_expander_handle_t handle, uint32_t *value)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
@@ -129,14 +129,14 @@ err:
     return ESP_OK;
 }
 
- esp_err_t reset(esp_io_expander_t *handle)
+ static esp_err_t reset(esp_io_expander_t *handle)
 {
     ESP_RETURN_ON_ERROR(write_direction_reg(handle, DIR_REG_DEFAULT_VAL), TAG, "Write dir reg failed");
     ESP_RETURN_ON_ERROR(write_output_reg(handle, OUT_REG_DEFAULT_VAL), TAG, "Write output reg failed");
     return ESP_OK;
 }
 
- esp_err_t del(esp_io_expander_t *handle)
+ static esp_err_t del(esp_io_expander_t *handle)
 {
     esp_io_expander_xl9555_16bit_t *tca = (esp_io_expander_xl9555_16bit_t *)__containerof(handle,
                                            esp_io_expander_xl9555_16bit_t, base);
