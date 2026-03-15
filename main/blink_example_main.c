@@ -71,9 +71,6 @@
     TEST_ASSERT_EQUAL_MESSAGE(ESP_OK, ret, "TCA9554 delete returned error");
 }
 static lv_disp_t *disp_handle = NULL;
-// IO 配置中的颜色传输完成回调（v1.x 的方式）
-// 颜色传输完成回调（官方推荐方式）
-// 颜色传输完成回调（官方推荐方式）
 static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, 
                                     esp_lcd_panel_io_event_data_t *edata, 
                                     void *user_ctx) {
@@ -174,19 +171,11 @@ void app_main(void) {
     
     disp_handle = lvgl_port_add_disp(&disp_cfg);
     
-       // === 3. 处理字节序（你的屏幕需要） ===
-    // 方法：在 SquareLine 导出的 UI 代码中转换颜色值
-    // 可以在 ui.h 顶部添加：
-    // #define LV_COLOR_SWAP(c) __builtin_bswap16(c)
-    // 然后所有颜色值用 LV_COLOR_SWAP() 包裹
     
     // === 4. 加载UI ===
     ui_init();
     
     ESP_LOGI(TAG, "UI loaded successfully!");
-    
-    // 释放内存
-    //free(buffer);
     
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
