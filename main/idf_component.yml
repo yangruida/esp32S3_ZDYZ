@@ -1,5 +1,6 @@
 dependencies:
-  espressif/led_strip: ^2.4.1
   espressif/esp_io_expander_tca95xx_16bit: ^2.0.2
   espressif/spi_bus: ^1.0.0
   espressif/esp_lvgl_port: ^2.7.2
+  espressif/button: ^4.1.6
+  espressif/led_indicator: ^2.1.1

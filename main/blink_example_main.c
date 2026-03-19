@@ -18,12 +18,13 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_st7789.h"  // ST7789 的具体驱动头文件
-#include "xl9555.h"
 
 #include "ui.h"
 #include "esp_lvgl_port.h"//连接硬件时
 #include "lvgl.h"//创建UI时config中使用了swap来校准自序即色彩
 
+#include "led_indicator_gpio.h"
+#include "driver/gpio.h"
 //static const char *TAG = "LCD";
 
 // ===== 根据你的硬件修改这里 =====
@@ -38,8 +39,15 @@
 #define LCD_H_RES    240     // 宽度
 #define LCD_V_RES    320     // 高度
 #define LCD_BITS_PER_PIXEL 16 // RGB565
-// ===============================
 
+#include "driver/gpio.h"
+#define LED_GPIO 1  // 你的LED引脚
+
+#define Led_indicator_GPIO 1 // led的gpio口
+// ===============================
+/*
+*iic_init
+*/
  void i2c_bus_init(void)
 {
     const i2c_master_bus_config_t bus_config = {
@@ -78,6 +86,39 @@ static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io,
                                     void *user_ctx) {
     lvgl_port_flush_ready(disp_handle);  // 直接使用全局 disp_handle
     return false;
+}
+
+
+static lv_obj_t *screen_main = NULL;      // 主界面
+/*
+*led_init
+*/
+
+
+void led_init(void) {
+    // 配置GPIO为推挽输出
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << LED_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&io_conf);
+    gpio_set_level(LED_GPIO, 1);
+}
+void led_on(void) {
+    gpio_set_level(LED_GPIO, 0);
+}
+
+void led_off(void) {
+    gpio_set_level(LED_GPIO, 1);
+}
+
+void led_toggle(void) {
+    static int level = 0;
+    level = !level;
+    gpio_set_level(LED_GPIO, level);
 }
 
 void app_main(void) {
@@ -175,11 +216,121 @@ void app_main(void) {
     
     
     // === 4. 加载UI ===
-    ui_init();
+    //ui_init();
+
+    screen_main = lv_obj_create(NULL);
     
+
+    
+
+
+
+
+
+
+
+
+
+
+     static lv_style_t style;
+    lv_style_init(&style);
+
+    lv_style_set_radius(&style, 3);
+
+    lv_style_set_bg_opa(&style, LV_OPA_100);
+    lv_style_set_bg_color(&style, lv_palette_main(LV_PALETTE_BLUE));
+    lv_style_set_bg_grad_color(&style, lv_palette_darken(LV_PALETTE_BLUE, 2));
+    lv_style_set_bg_grad_dir(&style, LV_GRAD_DIR_VER);
+
+    lv_style_set_border_opa(&style, LV_OPA_40);
+    lv_style_set_border_width(&style, 2);
+    lv_style_set_border_color(&style, lv_palette_main(LV_PALETTE_GREY));
+
+    lv_style_set_shadow_width(&style, 8);
+    lv_style_set_shadow_color(&style, lv_palette_main(LV_PALETTE_GREY));
+    lv_style_set_shadow_offset_y(&style, 8);
+
+    lv_style_set_outline_opa(&style, LV_OPA_COVER);
+    lv_style_set_outline_color(&style, lv_palette_main(LV_PALETTE_BLUE));
+
+    lv_style_set_text_color(&style, lv_color_white());
+    lv_style_set_pad_all(&style, 10);
+
+    /*Init the pressed style*/
+    static lv_style_t style_pr;
+    lv_style_init(&style_pr);
+
+    /*Add a large outline when pressed*/
+    lv_style_set_outline_width(&style_pr, 30);
+    lv_style_set_outline_opa(&style_pr, LV_OPA_TRANSP);
+
+    lv_style_set_translate_y(&style_pr, 5);
+    lv_style_set_shadow_offset_y(&style_pr, 3);
+    lv_style_set_bg_color(&style_pr, lv_palette_darken(LV_PALETTE_BLUE, 2));
+    lv_style_set_bg_grad_color(&style_pr, lv_palette_darken(LV_PALETTE_BLUE, 4));
+
+    /*Add a transition to the outline*/
+    static lv_style_transition_dsc_t trans;
+    static lv_style_prop_t props[] = {LV_STYLE_OUTLINE_WIDTH, LV_STYLE_OUTLINE_OPA, 0};
+    lv_style_transition_dsc_init(&trans, props, lv_anim_path_linear, 300, 0, NULL);
+
+    lv_style_set_transition(&style_pr, &trans);
+
+    lv_obj_t * btn1 = lv_button_create(lv_screen_active());
+    lv_obj_remove_style_all(btn1);                          /*Remove the style coming from the theme*/
+    lv_obj_add_style(btn1, &style, 0);
+    lv_obj_add_style(btn1, &style_pr, LV_STATE_PRESSED);
+    lv_obj_set_size(btn1, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_center(btn1);
+
+    lv_obj_t * label = lv_label_create(btn1);
+    lv_label_set_text(label, "Button");
+    lv_obj_center(label);
+
+
+
+
+
+    
+
     ESP_LOGI(TAG, "UI loaded successfully!");
     
     while(1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
+
+
+
+// add the key
+// void app_main(void) {
+//     // 初始化 I2C 总线和 IO 扩展器
+//     i2c_bus_init();
+//     i2c_dev_xl9555_16bit_init();
+//     esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_11|IO_EXPANDER_PIN_NUM_10, IO_EXPANDER_OUTPUT);
+
+// //test button key0 ->15 esp_io_expander_get_level读取的是整个io的值
+// uint32_t input_level_mask = 0;
+//  esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_15|IO_EXPANDER_PIN_NUM_14, IO_EXPANDER_INPUT);
+//     esp_err_t ret;
+//     // Print state
+//     ret = esp_io_expander_print_state(io_expander);
+//     TEST_ASSERT_EQUAL(ESP_OK, ret); 
+//     led_init();
+// while (1)
+// {
+//     // uint32_t key_state = 0;
+//     // esp_io_expander_get_level(io_expander, IO_EXPANDER_PIN_NUM_15|IO_EXPANDER_PIN_NUM_14, &key_state);
+//     // ESP_LOGI(TAG, "Key state: 0x%02"PRIX32, key_state);
+//     // if (key_state == 0x4000) {  // 假设按键按下为低电平
+//     //             led_on();   // 点亮LED
+//     //         } else {
+//     //             led_off();  // 熄灭LED
+//     //         }
+    
+            
+//     //         vTaskDelay(pdMS_TO_TICKS(10));  // 简单防抖
+//     // }
+
+    
+// }
